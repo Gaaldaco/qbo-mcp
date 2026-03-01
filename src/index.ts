@@ -1,8 +1,10 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import express from "express";
+import { randomUUID } from "node:crypto";
 
 // ── Configuration ─────────────────────────────────────────────────────────────
 const REALM_ID      = process.env.QBO_REALM_ID ?? "";
@@ -1340,21 +1342,54 @@ if (TRANSPORT === "stdio") {
   await server.connect(new StdioServerTransport());
 } else {
   const app = express();
-  const sessions = new Map<string, SSEServerTransport>();
+
+  // CORS — required for claude.ai (browser-based remote MCP client)
+  app.use((_req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Content-Type, mcp-session-id, accept");
+    next();
+  });
+  app.options("*", (_req, res) => { res.sendStatus(204); });
+
+  // ── Streamable HTTP transport (MCP SDK v1+, used by claude.ai) ─────────────
+  const httpSessions = new Map<string, StreamableHTTPServerTransport>();
+
+  app.all("/mcp", express.json(), async (req, res) => {
+    const sessionId = req.headers["mcp-session-id"] as string | undefined;
+
+    if (sessionId && httpSessions.has(sessionId)) {
+      // Existing session
+      await httpSessions.get(sessionId)!.handleRequest(req, res, req.body);
+    } else if (!sessionId && req.method === "POST") {
+      // New session — client sending initialize request
+      const transport = new StreamableHTTPServerTransport({
+        sessionIdGenerator: () => randomUUID(),
+      });
+      transport.onclose = () => {
+        if (transport.sessionId) httpSessions.delete(transport.sessionId);
+      };
+      await createServer().connect(transport);
+      if (transport.sessionId) httpSessions.set(transport.sessionId, transport);
+      await transport.handleRequest(req, res, req.body);
+    } else {
+      res.status(400).json({ error: "Missing or invalid mcp-session-id" });
+    }
+  });
+
+  // ── Legacy SSE transport (Claude Desktop / older clients) ──────────────────
+  const sseSessions = new Map<string, SSEServerTransport>();
 
   app.get("/sse", async (_req, res) => {
     const transport = new SSEServerTransport("/messages", res);
-    sessions.set(transport.sessionId, transport);
-    res.on("close", () => sessions.delete(transport.sessionId));
+    sseSessions.set(transport.sessionId, transport);
+    res.on("close", () => sseSessions.delete(transport.sessionId));
     await createServer().connect(transport);
   });
 
   app.post("/messages", express.json(), async (req, res) => {
-    const transport = sessions.get(req.query.sessionId as string);
-    if (!transport) {
-      res.status(404).json({ error: "Session not found" });
-      return;
-    }
+    const transport = sseSessions.get(req.query.sessionId as string);
+    if (!transport) { res.status(404).json({ error: "Session not found" }); return; }
     await transport.handlePostMessage(req, res);
   });
 
