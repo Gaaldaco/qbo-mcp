@@ -16,13 +16,10 @@ const MINOR_VERSION = "70";
 let accessToken  = process.env.QBO_ACCESS_TOKEN ?? "";
 let refreshToken = process.env.QBO_REFRESH_TOKEN ?? "";
 
-if (!REALM_ID) {
-  console.error("QBO_REALM_ID is required");
-  process.exit(1);
-}
-if (!accessToken && !refreshToken) {
-  console.error("QBO_ACCESS_TOKEN or QBO_REFRESH_TOKEN is required");
-  process.exit(1);
+if (!REALM_ID || (!accessToken && !refreshToken)) {
+  console.error(
+    "Warning: QBO_REALM_ID and QBO_ACCESS_TOKEN (or QBO_REFRESH_TOKEN) must be set before using any tools."
+  );
 }
 
 const BASE_URL = ENVIRONMENT === "production"
@@ -58,6 +55,8 @@ async function apiFetch(
   options: RequestInit = {},
   params: Record<string, string> = {}
 ): Promise<unknown> {
+  if (!REALM_ID) throw new Error("QBO_REALM_ID is not set. Add it in the Railway Variables tab.");
+  if (!accessToken && !refreshToken) throw new Error("QBO_ACCESS_TOKEN or QBO_REFRESH_TOKEN is not set. Add it in the Railway Variables tab.");
   const makeReq = (token: string) => {
     const url = new URL(`${BASE_URL}/v3/company/${REALM_ID}${path}`);
     url.searchParams.set("minorversion", MINOR_VERSION);

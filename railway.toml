@@ -13,9 +13,3 @@ restartPolicyMaxRetries = 3
 TRANSPORT = "http"
 PORT = "3000"
 QBO_ENVIRONMENT = "sandbox"
-# Set these in the Railway dashboard Variables tab:
-QBO_REALM_ID = ""
-QBO_CLIENT_ID = ""
-QBO_CLIENT_SECRET = ""
-QBO_ACCESS_TOKEN = ""
-QBO_REFRESH_TOKEN = ""
