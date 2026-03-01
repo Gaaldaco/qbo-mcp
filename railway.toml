@@ -9,8 +9,13 @@ healthcheckTimeout = 30
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
 
-# Default env vars — user must set QBO_* credentials in Railway dashboard Variables
 [deploy.envVars]
 TRANSPORT = "http"
 PORT = "3000"
 QBO_ENVIRONMENT = "sandbox"
+# Set these in the Railway dashboard Variables tab:
+QBO_REALM_ID = ""
+QBO_CLIENT_ID = ""
+QBO_CLIENT_SECRET = ""
+QBO_ACCESS_TOKEN = ""
+QBO_REFRESH_TOKEN = ""
