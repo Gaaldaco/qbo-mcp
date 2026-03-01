@@ -1,0 +1,16 @@
+[build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "node dist/index.js"
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+# Default env vars — user must set QBO_* credentials in Railway dashboard Variables
+[deploy.envVars]
+TRANSPORT = "http"
+PORT = "3000"
+QBO_ENVIRONMENT = "sandbox"
