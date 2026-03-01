@@ -11,5 +11,5 @@ restartPolicyMaxRetries = 3
 
 [deploy.envVars]
 TRANSPORT = "http"
-PORT = "3000"
+PORT = "8080"
 QBO_ENVIRONMENT = "sandbox"
